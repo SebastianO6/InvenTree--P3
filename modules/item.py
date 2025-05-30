@@ -1,6 +1,6 @@
 from lib import CONN, CURSOR
 
-class Items:
+class Item:
     all = {}
 
     def __init__(self, name, quantity, price, category = None, id = None):
