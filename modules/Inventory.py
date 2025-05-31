@@ -1,10 +1,12 @@
-from item import Item
-from helpers import (
+from modules.item import Item
+from lib.helpers import (
     display_menu,
     display_items,
     get_item_details,
     exit_program
 )
+
+
 
 def handle_view_all():
     items = Item.get_all()

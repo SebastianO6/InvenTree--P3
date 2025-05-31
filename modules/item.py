@@ -1,139 +1,65 @@
-from lib import CONN, CURSOR
+from db import CURSOR, CONN
+
 
 class Item:
-    all = {}
-
-    def __init__(self, name, quantity, price, category = None, id = None):
+    def __init__(self, id, name, quantity, price, category, location):
         self.id = id
         self.name = name
         self.quantity = quantity
         self.price = price
-        self.category = category 
+        self.category = category
+        self.location = location
 
-    def __repr__(self):
-        return f"<Item: {id}: name: {self.name}, Qty: {self.quantity}, " + f"<Price: ${self.price:.2f}, Category: {self.category}, " 
-    
     @classmethod
     def create_table(cls):
-        sql = """
-           CREATE TABLE IF NOT EXISTS items (
-              id INTEGER PRIMARY KEY, 
-              name TEXT NOT NULL,
-              quantity INTEGER NOT NULL,
-              price REAL NOT NULL,
-              category TEXT
-           )               
-        """
-
-        CURSOR.execute(sql)
+        CURSOR.execute("""
+            CREATE TABLE IF NOT EXISTS items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                quantity INTEGER,
+                price REAL,
+                category TEXT,
+                location TEXT
+            );
+        """)
         CONN.commit()
-        
-    @classmethod
-    def drop_table(cls):
-        sql = """
-           DROP TABLE IF EXISTS items 
-        """    
-
-        CURSOR.execute(sql)
-        CONN.commit()
-        cls.all = {} 
-
-    def save(self):
-       sql = """
-           INSERT INTO items(name, quantity, price, category)
-           VALUES (?,?,?,?)            
-        """ 
-       
-       CURSOR.execute(sql, (self.name, self.quantity, self.price, self.category))
-       CONN.commit()
-
-       self.id = CURSOR.lastrowid
-       type(self).all[self.id] = self
-
-    def update(self):
-        sql = """
-           UPDATE items
-           SET name = ?, quantity = ?, price = ?, category = ?
-           WHERE id = ?
-        """   
-        CURSOR.execute(sql, (self.name, self.quantity, self.price, self.category))
-        CONN.commit()
-
-    def delete(self):
-        sql = """
-           DELETE items
-           WHERE id = ?
-        """    
-
-        CURSOR.execute(sql, (self.id,))
-        CONN.commit()
-
-        del type(self).all[self.id] 
-        self.id = None
 
     @classmethod
-    def create_table(cls, name, quantity, price, category = None):
-        item = cls(name, quantity, price, category)
-        item.save()
-        return item   
-
-    @classmethod 
-    def instance_from_db(cls,row):
-        item = cls.all.get(row[0])
-
-        if item:
-            item.name = row[1]
-            item.quantity = row[2]
-            item.price = row[3]
-            item.category = row[4]
-
-        else:
-            item = cls(row[1], row[2], row[3], row[4], row[0])   
-            cls.all[item.id] = item 
-        return item
+    def create(cls, name, quantity, price, category, location):
+        CURSOR.execute("""
+            INSERT INTO items (name, quantity, price, category, location)
+            VALUES (?, ?, ?, ?, ?);
+        """, (name, quantity, price, category, location))
+        CONN.commit()
 
     @classmethod
     def get_all(cls):
-        sql = """
-           SELECT *
-           FROM items
-        """    
+        rows = CURSOR.execute("SELECT * FROM items").fetchall()
+        return [cls(*row) for row in rows]
 
-        rows = CURSOR.execute(sql).fetchall()
-        return [cls.instance_from_db(row) for row in rows]
-    
     @classmethod
-    def find_by_id(cls, id):
-        sql = """
-           SELECT *
-           FROM items
-           WHERE id = ?
-        """
+    def find_by_id(cls, item_id):
+        row = CURSOR.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
+        return cls(*row) if row else None
 
-        row = CURSOR.execute(sql, (id,)).fetchone()
-        return cls.instance_from_db(row) if row else None 
-    
     @classmethod
     def find_by_name(cls, name):
-        sql = """
-           SELECT *
-           FROM items
-           WHERE name = ?
-        """
+        rows = CURSOR.execute("SELECT * FROM items WHERE name LIKE ?", ('%' + name + '%',)).fetchall()
+        return [cls(*row) for row in rows]
 
-        row = CURSOR.execute(sql, (name,)).fetchone()
-        return cls.instance_from_db(row) if row else None
-    
     @classmethod
     def find_by_category(cls, category):
-        sql = """
-           SELECT *
-           FROM items
-           WHERE category = ?
-        """
+        rows = CURSOR.execute("SELECT * FROM items WHERE category LIKE ?", ('%' + category + '%',)).fetchall()
+        return [cls(*row) for row in rows]
 
-        row = CURSOR.execute(sql, (category,)).fetchone()
-        return cls.instance_from_db(row) if row else None
-     
-        
+    def update(self):
+        CURSOR.execute("""
+            UPDATE items
+            SET name=?, quantity=?, price=?, category=?, location=?
+            WHERE id=?;
+        """, (self.name, self.quantity, self.price, self.category, self.location, self.id))
+        CONN.commit()
 
+    def delete(self):
+        CURSOR.execute("DELETE FROM items WHERE id=?", (self.id,))
+        CONN.commit()
